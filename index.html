@@ -3,220 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stella OS | Financial Archive</title>
-    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+    <title>Pro Ledger | 极简云账本</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
-            --hot-pink: #ff85a1;
-            --soft-pink: #f8c6d1;
-            --retro-blue: #7a7dbd;
-            --win-border: #222;
-            --bg-dark: #1e293b;
-            --pixel-font: "Pixelify Sans", "Courier New", monospace;
+            --bg: #0a0a0a; --card: #141414; --accent: #00ff88;
+            --text: #ffffff; --dim: #888888; --err: #ff4444;
         }
-
-        * {
-            margin: 0; padding: 0; box-sizing: border-box;
-            font-family: var(--pixel-font) !important;
-            -webkit-font-smoothing: none;
-        }
-
-        body {
-            height: 100vh;
-            background: var(--retro-blue);
-            background-image: linear-gradient(135deg, rgba(255,133,161,0.4) 0%, transparent 50%);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* 顶部状态栏 */
-        .top-bar {
-            height: 28px; background: rgba(255, 255, 255, 0.85);
-            border-bottom: 2px solid var(--win-border);
-            display: flex; align-items: center; padding: 0 15px; font-size: 14px; z-index: 1000;
-        }
-
-        /* 记账窗口核心样式 */
-        .window {
-            position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%);
-            width: 90%; max-width: 600px; background: #fff;
-            border: 3px solid var(--win-border);
-            box-shadow: 8px 8px 0px rgba(0,0,0,0.2);
-            display: flex; flex-direction: column;
-        }
-
-        .window-header {
-            padding: 8px 12px; background: var(--hot-pink); color: white;
-            border-bottom: 2px solid var(--win-border);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-
-        .window-content { padding: 15px; background: #fdf2f5; overflow-y: auto; max-height: 70vh; }
-
-        /* 输入区域布局 */
-        .ledger-controls {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-            margin-bottom: 15px; background: white; padding: 12px;
-            border: 2px solid var(--win-border);
-        }
-
-        .input-group { display: flex; flex-direction: column; gap: 5px; }
-        .input-group label { font-size: 12px; color: var(--win-border); font-weight: bold; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; margin-top: 40px; }
         
-        input, select {
-            padding: 8px; border: 2px solid var(--win-border);
-            background: #fff; font-size: 14px; outline: none;
-        }
+        /* 概览卡片 */
+        .header { margin-bottom: 30px; border-left: 4px solid var(--accent); padding-left: 15px; }
+        .header h1 { font-size: 20px; letter-spacing: 1px; }
 
-        .btn-save {
-            grid-column: span 2; background: var(--hot-pink); color: white;
-            border: 2px solid var(--win-border); padding: 10px;
-            font-weight: bold; cursor: pointer; margin-top: 5px;
-            box-shadow: 3px 3px 0px #888;
+        /* 输入面板 */
+        .panel { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid #222; margin-bottom: 20px; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; }
+        label { display: block; font-size: 11px; color: var(--dim); margin-bottom: 5px; text-transform: uppercase; }
+        input, select { 
+            width: 100%; background: #000; border: 1px solid #333; padding: 10px; 
+            color: #fff; border-radius: 6px; outline: none; font-size: 14px;
         }
-        .btn-save:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px #888; }
+        input:focus { border-color: var(--accent); }
+        .full-row { margin-bottom: 15px; }
+        
+        button { 
+            width: 100%; background: var(--accent); color: #000; border: none; 
+            padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        button:hover { opacity: 0.8; transform: translateY(-1px); }
 
-        /* 历史记录列表 */
-        .history-list { border-top: 2px dashed var(--hot-pink); padding-top: 15px; }
-        .item {
-            background: white; border: 2px solid var(--win-border);
-            padding: 10px; margin-bottom: 8px; display: flex;
-            justify-content: space-between; align-items: center;
+        /* 列表部分 */
+        .list-header { font-size: 12px; color: var(--dim); margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .item { 
+            background: var(--card); padding: 15px; border-radius: 8px; margin-bottom: 8px;
+            display: flex; justify-content: space-between; align-items: center; border: 1px solid #1a1a1a;
         }
-        .item-info { display: flex; flex-direction: column; }
-        .item-date { font-size: 10px; color: #666; }
-        .amount-inc { color: #22c55e; font-weight: bold; }
-        .amount-exp { color: #ef4444; font-weight: bold; }
+        .item-left div { font-size: 14px; margin-bottom: 2px; }
+        .item-left span { font-size: 11px; color: var(--dim); }
+        .amt { font-family: "Monaco", monospace; font-weight: bold; }
+        .inc { color: var(--accent); }
+        .exp { color: var(--err); }
     </style>
 </head>
 <body>
 
-    <div class="top-bar">
-        <span style="margin-right: 15px; font-weight: bold;">Stella OS v2.0</span>
-        <span id="clock">--:--</span>
+<div class="container">
+    <div class="header">
+        <h1>TRANSACTION</h1>
+        <p style="font-size:12px; color:var(--dim)" id="top-date">Loading...</p>
     </div>
 
-    <div class="window">
-        <div class="window-header">
-            <span>✨ Stella_Ledger.exe</span>
-            <div style="cursor: pointer;">[X]</div>
-        </div>
-        <div class="window-content">
-            <div class="ledger-controls">
-                <div class="input-group">
-                    <label>TYPE</label>
-                    <select id="type">
-                        <option value="expense">EXPENSE (-)</option>
-                        <option value="income">INCOME (+)</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>CURRENCY</label>
-                    <select id="currency">
-                        <option value="CNY">CNY (¥)</option>
-                        <option value="USD">USD ($)</option>
-                        <option value="EUR">EUR (€)</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>AMOUNT</label>
-                    <input type="number" id="amount" placeholder="0.00">
-                </div>
-                <div class="input-group">
-                    <label>DATE</label>
-                    <input type="date" id="trans-date">
-                </div>
-                <div class="input-group" style="grid-column: span 2;">
-                    <label>DESCRIPTION</label>
-                    <input type="text" id="desc" placeholder="What did we spend on?">
-                </div>
-                <button class="btn-save" onclick="saveRecord()">SAVE TO CLOUD</button>
+    <div class="panel">
+        <div class="row">
+            <div class="input-group">
+                <label>Type</label>
+                <select id="type">
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                </select>
             </div>
-
-            <div class="history-list" id="records-list">
-                <p style="text-align: center; font-size: 12px; color: #888;">Loading archives...</p>
+            <div class="input-group">
+                <label>Currency</label>
+                <select id="currency">
+                    <option value="CNY">CNY (¥)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="JPY">JPY (¥)</option>
+                </select>
             </div>
         </div>
+        <div class="row">
+            <div class="input-group">
+                <label>Amount</label>
+                <input type="number" id="amount" placeholder="0.00" step="0.01">
+            </div>
+            <div class="input-group">
+                <label>Date</label>
+                <input type="date" id="trans-date">
+            </div>
+        </div>
+        <div class="full-row">
+            <label>Note</label>
+            <input type="text" id="desc" placeholder="What's this for?">
+        </div>
+        <button onclick="saveRecord()">RECORD ENTRY</button>
     </div>
 
-    <script>
-        // 1. 初始化配置
-        const SB_URL = "https://gzhsvctnisnoimiddoia.supabase.co";
-        const SB_KEY = "sb_publishable_Gs2YXmsg_2RRgyuVABP9Ww_1zbSjw5N"; 
-        
-        // 关键：重命名变量避开冲突
-        const _client = supabase.createClient(SB_URL, SB_KEY);
+    <div class="list-header">
+        <span>RECENT ACTIVITY</span>
+        <span id="stat-summary">...</span>
+    </div>
+    <div id="records-list"></div>
+</div>
 
-        // 2. 初始化页面
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('trans-date').valueAsDate = new Date();
+<script>
+    // 你的核心配置
+    const SB_URL = "https://gzhsvctnisnoimiddoia.supabase.co";
+    const SB_KEY = "sb_publishable_Gs2YXmsg_2RRgyuVABP9Ww_1zbSjw5N"; 
+    const _db = supabase.createClient(SB_URL, SB_KEY); // 避开变量名冲突
+
+    // 初始化：设置今天日期并加载数据
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('trans-date').valueAsDate = new Date();
+        document.getElementById('top-date').innerText = new Date().toDateString().toUpperCase();
+        loadRecords();
+    });
+
+    async function saveRecord() {
+        const amt = document.getElementById('amount').value;
+        const type = document.getElementById('type').value;
+        const curr = document.getElementById('currency').value;
+        const date = document.getElementById('trans-date').value;
+        const desc = document.getElementById('desc').value;
+
+        if (!amt) return alert("Enter amount!");
+
+        const { error } = await _db.from('money_records').insert([{
+            amount: parseFloat(amt),
+            type: type,
+            currency: curr,
+            transaction_date: date,
+            description: desc
+        }]);
+
+        if (!error) {
+            document.getElementById('amount').value = '';
+            document.getElementById('desc').value = '';
             loadRecords();
-            setInterval(updateClock, 1000);
-        });
-
-        // 3. 记账逻辑
-        async function saveRecord() {
-            const amount = document.getElementById('amount').value;
-            const type = document.getElementById('type').value;
-            const curr = document.getElementById('currency').value;
-            const date = document.getElementById('trans-date').value;
-            const desc = document.getElementById('desc').value;
-
-            if (!amount) return alert("Hey! Amount is empty! (╯°□°）╯");
-
-            const { error } = await _client.from('money_records').insert([{
-                amount: parseFloat(amount),
-                type: type,
-                currency: curr,
-                transaction_date: date,
-                description: desc
-            }]);
-
-            if (!error) {
-                alert("Archive Success! ✨");
-                document.getElementById('amount').value = '';
-                document.getElementById('desc').value = '';
-                loadRecords();
-            } else {
-                alert("Database Error! Check your SQL fields.");
-                console.error(error);
-            }
+        } else {
+            alert("Error: Check SQL Fields");
         }
+    }
 
-        // 4. 拉取逻辑
-        async function loadRecords() {
-            const { data, error } = await _client
-                .from('money_records')
-                .select('*')
-                .order('transaction_date', { ascending: false });
+    async function loadRecords() {
+        const { data, error } = await _db
+            .from('money_records')
+            .select('*')
+            .order('transaction_date', { ascending: false });
 
-            if (error) return console.error(error);
+        if (error) return;
 
-            const list = document.getElementById('records-list');
-            if (data.length === 0) {
-                list.innerHTML = '<p style="text-align:center; font-size:12px;">No records yet. Start archiving!</p>';
-                return;
-            }
-
-            list.innerHTML = data.map(item => `
-                <div class="item">
-                    <div class="item-info">
-                        <span style="font-size:13px; font-weight:bold;">${item.description || 'Routine'}</span>
-                        <span class="item-date">${item.transaction_date.split('T')[0]} • ${item.currency}</span>
-                    </div>
-                    <div class="${item.type === 'income' ? 'amount-inc' : 'amount-exp'}">
-                        ${item.type === 'income' ? '+' : '-'}${Number(item.amount).toFixed(2)}
-                    </div>
+        const list = document.getElementById('records-list');
+        list.innerHTML = data.map(item => `
+            <div class="item">
+                <div class="item-left">
+                    <div>${item.description || 'General'}</div>
+                    <span>${item.transaction_date.split('T')[0]} · ${item.currency}</span>
                 </div>
-            `).join('');
-        }
-
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('clock').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        }
-    </script>
+                <div class="amt ${item.type === 'income' ? 'inc' : 'exp'}">
+                    ${item.type === 'income' ? '+' : '-'}${Number(item.amount).toFixed(2)}
+                </div>
+            </div>
+        `).join('');
+    }
+</script>
 </body>
 </html>
