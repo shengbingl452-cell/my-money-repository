@@ -121,7 +121,7 @@
 
         if (!amt) return alert("Enter amount!");
 
-        const { error } = await _db.from('money_records').insert([{
+        const { error } = await _db.from('money').insert([{
             amount: parseFloat(amt),
             type: type,
             currency: curr,
@@ -140,7 +140,7 @@
 
     async function loadRecords() {
         const { data, error } = await _db
-            .from('money_records')
+            .from('money')
             .select('*')
             .order('transaction_date', { ascending: false });
 
