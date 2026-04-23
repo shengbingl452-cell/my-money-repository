@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stella Cloud Money 💰</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f8c6d1;
+            --main: #ff85a1;
+            --glass: rgba(255, 255, 255, 0.9);
+            --font: "Pixelify Sans", "Courier New", monospace;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: radial-gradient(#ffb6c1 1px, transparent 1px);
+            background-size: 20px 20px;
+            font-family: var(--font);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container { width: 100%; max-width: 500px; }
+
+        .win-card {
+            background: var(--glass);
+            border: 3px solid #222;
+            box-shadow: 5px 5px 0px #222;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .title { font-size: 1.5rem; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+
+        /* 输入样式 */
+        .input-box { width: 100%; padding: 10px; border: 2px solid #222; margin-bottom: 10px; border-radius: 5px; font-family: var(--font); }
+        .row { display: flex; gap: 10px; }
+        
+        .btn {
+            background: var(--main);
+            color: white;
+            border: 2px solid #222;
+            padding: 10px 20px;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #222;
+            font-family: var(--font);
+            font-weight: bold;
+        }
+        .btn:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px #222; }
+
+        /* 记录列表 */
+        .record-item {
+            background: white;
+            border: 2px solid #222;
+            padding: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } }
+
+        .type-tag { padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; color: white; border: 1px solid #222; }
+        .bg-income { background: #4facfe; }
+        .bg-expense { background: #ff5e62; }
+
+        .amount-text { font-size: 1.2rem; font-weight: bold; }
+        
+        /* 图片预览 */
+        .thumb { width: 40px; height: 40px; border: 1px solid #222; object-fit: cover; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="win-card">
+        <div class="title">✨ Stella Money Cloud</div>
+        <div class="row">
+            <select id="type" class="input-box" style="width: 100px;">
+                <option value="expense">支出</option>
+                <option value="income">收入</option>
+            </select>
+            <input type="number" id="amount" class="input-box" placeholder="Amount (¥)">
+        </div>
+        <input type="text" id="desc" class="input-box" placeholder="备注: 买了什么?">
+        
+        <p style="font-size: 0.7rem; color: #666; margin-bottom: 5px;">可选: 上传凭证到 Bucket(money)</p>
+        <input type="file" id="fileInput" accept="image/*" style="font-size: 0.7rem; margin-bottom: 10px;">
+        
+        <button class="btn" id="saveBtn" style="width: 100%;" onclick="uploadAndSave()">保存记录</button>
+    </div>
+
+    <div class="win-card">
+        <div class="title">📋 今日账单</div>
+        <div id="loading" style="text-align: center; display: none;">Saving to cloud...</div>
+        <div id="list"></div>
+    </div>
+</div>
+
+<script>
+    // 配置你的 Supabase
+    const SB_URL = "https://gzhsvctnisnoimiddoia.supabase.co";
+    const SB_KEY = "sb_publishable_Gs2YXmsg_2RRgyuVABP9Ww_1zbSjw5N"; // 建议实际部署用 Anon Key
+    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+
+    // 加载数据
+    async function loadData() {
+        const { data, error } = await supabase
+            .from('money_records')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) console.error(error);
+        render(data || []);
+    }
+
+    // 上传图片并保存记录
+    async function uploadAndSave() {
+        const btn = document.getElementById('saveBtn');
+        const file = document.getElementById('fileInput').files[0];
+        const amount = document.getElementById('amount').value;
+        const type = document.getElementById('type').value;
+        const desc = document.getElementById('desc').value;
+
+        if (!amount) return alert("请输入金额！");
+        
+        btn.disabled = true;
+        document.getElementById('loading').style.display = 'block';
+
+        let imageUrl = null;
+
+        // 1. 如果有图片，先上传到 money bucket
+        if (file) {
+            const fileName = `${Date.now()}_${file.name}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('money')
+                .upload(fileName, file);
+            
+            if (uploadError) {
+                console.error("Upload failed:", uploadError);
+            } else {
+                // 获取公共链接
+                const { data: urlData } = supabase.storage.from('money').getPublicUrl(fileName);
+                imageUrl = urlData.publicUrl;
+            }
+        }
+
+        // 2. 保存到数据库
+        const { error } = await supabase
+            .from('money_records')
+            .insert([{
+                amount: parseFloat(amount),
+                type: type,
+                description: desc,
+                image_url: imageUrl
+            }]);
+
+        if (error) alert("保存失败: " + error.message);
+        
+        // 3. 重置与刷新
+        document.getElementById('amount').value = '';
+        document.getElementById('desc').value = '';
+        document.getElementById('fileInput').value = '';
+        btn.disabled = false;
+        document.getElementById('loading').style.display = 'none';
+        loadData();
+    }
+
+    function render(items) {
+        const list = document.getElementById('list');
+        list.innerHTML = items.map(item => `
+            <div class="record-item">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    ${item.image_url ? `<img src="${item.image_url}" class="thumb">` : '🖼️'}
+                    <div>
+                        <span class="type-tag ${item.type === 'income' ? 'bg-income' : 'bg-expense'}">
+                            ${item.type === 'income' ? '收入' : '支出'}
+                        </span>
+                        <div style="font-size:0.9rem; margin-top:5px;">${item.description || '无备注'}</div>
+                    </div>
+                </div>
+                <div class="amount-text" style="color: ${item.type === 'income' ? '#2ecc71' : '#e74c3c'}">
+                    ${item.type === 'income' ? '+' : '-'}${item.amount.toFixed(2)}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 初始加载
+    loadData();
+</script>
+
+</body>
+</html>
